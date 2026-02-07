@@ -10,12 +10,12 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 public class Server implements HttpHandler {
-    private static List<ObservationRecord> observations = new ArrayList<>();
+    private static List<ObservationRecord> observations = new CopyOnWriteArrayList<>();
 
     public static void main(String[] args) {
         try {
@@ -136,6 +136,13 @@ public class Server implements HttpHandler {
             String targetBodyName = json.getString("target_body_name");
             String centerBodyName = json.getString("center_body_name");
             String epoch = json.getString("epoch");
+
+            // Validate fields are not empty
+            if (targetBodyName.trim().isEmpty() || centerBodyName.trim().isEmpty() || epoch.trim().isEmpty()) {
+                sendResponse(exchange, 400, "Required fields cannot be empty");
+                return;
+            }
+
             JSONObject orbitalElements = hasOrbitalElements ? json.getJSONObject("orbital_elements") : null;
             JSONObject stateVector = hasStateVector ? json.getJSONObject("state_vector") : null;
 
@@ -176,6 +183,7 @@ public class Server implements HttpHandler {
             outputStream.close();
 
         } catch (Exception e) {
+            e.printStackTrace(); // Log error for debugging
             sendResponse(exchange, 500, "Internal server error");
         }
     }

@@ -63,11 +63,17 @@ public class RegistrationHandler implements HttpHandler {
             String password = json.getString("password");
             String email = json.getString("email");
 
+            // Validate fields are not empty
+            if (username.trim().isEmpty() || password.trim().isEmpty() || email.trim().isEmpty()) {
+                sendResponse(exchange, 400, "Fields cannot be empty");
+                return;
+            }
+
             // Add user
             if (authenticator.addUser(username, password, email)) {
                 exchange.sendResponseHeaders(200, -1);
             } else {
-                sendResponse(exchange, 403, "User already registered");
+                sendResponse(exchange, 409, "User already registered");
             }
         } catch (JSONException e) {
             sendResponse(exchange, 400, "Invalid JSON format");

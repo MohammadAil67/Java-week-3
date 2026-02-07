@@ -1,15 +1,15 @@
 package com.server;
 
 import com.sun.net.httpserver.BasicAuthenticator;
-import java.util.Hashtable;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class UserAuthenticator extends BasicAuthenticator {
     private Map<String, User> users = null;
 
     public UserAuthenticator(String realm) {
         super(realm);
-        users = new Hashtable<String, User>();
+        users = new ConcurrentHashMap<String, User>();
         // Add a dummy user for initial testing
         users.put("dummy", new User("dummy", "passwd", "dummy@example.com"));
     }
