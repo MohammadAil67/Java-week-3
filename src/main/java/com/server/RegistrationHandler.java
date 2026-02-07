@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
 public class RegistrationHandler implements HttpHandler {
-    private UserAuthenticator authenticator;
+    private final UserAuthenticator authenticator;
 
     public RegistrationHandler(UserAuthenticator authenticator) {
         this.authenticator = authenticator;
