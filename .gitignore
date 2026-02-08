@@ -10,3 +10,4 @@ target/
 .DS_Store
 *.db
 *.db-journal
+dependency-reduced-pom.xml
