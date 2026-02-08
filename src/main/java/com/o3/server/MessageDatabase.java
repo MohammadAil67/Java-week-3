@@ -70,6 +70,19 @@ public class MessageDatabase {
             createStatement.executeUpdate(createMessagesString);
             createStatement.close();
             
+            // Create observatories table
+            String createObservatoriesString = "CREATE TABLE observatories (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "message_id INTEGER NOT NULL, " +
+                "latitude REAL NOT NULL, " +
+                "longitude REAL NOT NULL, " +
+                "observatory_name TEXT NOT NULL, " +
+                "FOREIGN KEY (message_id) REFERENCES messages(id))";
+            
+            createStatement = connection.createStatement();
+            createStatement.executeUpdate(createObservatoriesString);
+            createStatement.close();
+            
             return true;
         }
         return false;
@@ -148,7 +161,7 @@ public class MessageDatabase {
     
     public int addMessage(String targetBodyName, String centerBodyName, String epoch,
                           JSONObject orbitalElements, JSONObject stateVector,
-                          String ownerNickname, String recordPayload) throws SQLException {
+                          String ownerNickname, String recordPayload, List<Observatory> observatories) throws SQLException {
         long timestamp = ZonedDateTime.now(ZoneOffset.UTC).toInstant().toEpochMilli();
         
         String insertQuery = "INSERT INTO messages " +
@@ -175,6 +188,23 @@ public class MessageDatabase {
         
         generatedKeys.close();
         statement.close();
+        
+        // Add observatories if present
+        if (observatories != null && !observatories.isEmpty() && id != -1) {
+            String insertObsQuery = "INSERT INTO observatories " +
+                "(message_id, latitude, longitude, observatory_name) VALUES (?, ?, ?, ?)";
+            PreparedStatement obsStatement = connection.prepareStatement(insertObsQuery);
+            
+            for (Observatory obs : observatories) {
+                obsStatement.setInt(1, id);
+                obsStatement.setDouble(2, obs.getLatitude());
+                obsStatement.setDouble(3, obs.getLongitude());
+                obsStatement.setString(4, obs.getObservatoryName());
+                obsStatement.executeUpdate();
+            }
+            
+            obsStatement.close();
+        }
         
         return id;
     }
@@ -214,6 +244,10 @@ public class MessageDatabase {
             record.setMetadata(id, timestamp, recordOwner);
             record.setRecordPayload(recordPayload);
             
+            // Retrieve observatories for this message
+            List<Observatory> observatories = getObservatoriesForMessage(id);
+            record.setObservatories(observatories);
+            
             messages.add(record);
         }
         
@@ -221,6 +255,29 @@ public class MessageDatabase {
         statement.close();
         
         return messages;
+    }
+    
+    private List<Observatory> getObservatoriesForMessage(int messageId) throws SQLException {
+        List<Observatory> observatories = new ArrayList<>();
+        String query = "SELECT latitude, longitude, observatory_name FROM observatories WHERE message_id = ?";
+        
+        PreparedStatement statement = connection.prepareStatement(query);
+        statement.setInt(1, messageId);
+        ResultSet resultSet = statement.executeQuery();
+        
+        while (resultSet.next()) {
+            double latitude = resultSet.getDouble("latitude");
+            double longitude = resultSet.getDouble("longitude");
+            String observatoryName = resultSet.getString("observatory_name");
+            
+            Observatory obs = new Observatory(latitude, longitude, observatoryName);
+            observatories.add(obs);
+        }
+        
+        resultSet.close();
+        statement.close();
+        
+        return observatories;
     }
     
     public void close() throws SQLException {

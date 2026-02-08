@@ -73,7 +73,8 @@ public class RegistrationHandler implements HttpHandler {
 
             // Add user
             if (authenticator.addUser(username, password, email, nickname)) {
-                exchange.sendResponseHeaders(200, -1);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(201, -1);
             } else {
                 sendResponse(exchange, 409, "User already registered");
             }

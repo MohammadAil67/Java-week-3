@@ -11,6 +11,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -161,12 +162,44 @@ public class Server implements HttpHandler {
             JSONObject orbitalElements = hasOrbitalElements ? json.getJSONObject("orbital_elements") : null;
             JSONObject stateVector = hasStateVector ? json.getJSONObject("state_vector") : null;
 
-            // Extract record_payload from metadata if present
+            // Extract record_payload from metadata - it's mandatory
             String recordPayload = null;
-            if (json.has("metadata")) {
-                JSONObject metadata = json.getJSONObject("metadata");
-                if (metadata.has("record_payload")) {
-                    recordPayload = metadata.getString("record_payload");
+            if (!json.has("metadata")) {
+                sendResponse(exchange, 400, "Missing required field: metadata");
+                return;
+            }
+            
+            JSONObject metadata = json.getJSONObject("metadata");
+            if (!metadata.has("record_payload")) {
+                sendResponse(exchange, 400, "Missing required field: metadata.record_payload");
+                return;
+            }
+            
+            recordPayload = metadata.getString("record_payload");
+            if (recordPayload == null || recordPayload.trim().isEmpty()) {
+                sendResponse(exchange, 400, "record_payload cannot be empty");
+                return;
+            }
+            
+            // Extract observatory information if present
+            List<Observatory> observatories = new ArrayList<>();
+            if (metadata.has("observatory")) {
+                JSONArray observatoryArray = metadata.getJSONArray("observatory");
+                for (int i = 0; i < observatoryArray.length(); i++) {
+                    JSONObject obsJson = observatoryArray.getJSONObject(i);
+                    
+                    // Validate observatory fields
+                    if (!obsJson.has("latitude") || !obsJson.has("longitude") || !obsJson.has("observatory_name")) {
+                        sendResponse(exchange, 400, "Invalid observatory data: missing required fields");
+                        return;
+                    }
+                    
+                    double latitude = obsJson.getDouble("latitude");
+                    double longitude = obsJson.getDouble("longitude");
+                    String observatoryName = obsJson.getString("observatory_name");
+                    
+                    Observatory obs = new Observatory(latitude, longitude, observatoryName);
+                    observatories.add(obs);
                 }
             }
 
@@ -195,10 +228,11 @@ public class Server implements HttpHandler {
             }
 
             // Store the message in the database
-            db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname, recordPayload);
+            db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname, recordPayload, observatories);
 
-            // Send success response
-            exchange.sendResponseHeaders(200, -1);
+            // Send success response with 201 Created status
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(201, -1);
 
         } catch (JSONException e) {
             sendResponse(exchange, 400, "Invalid JSON format");
@@ -229,6 +263,8 @@ public class Server implements HttpHandler {
             // Send response
             String responseString = responseArray.toString();
             byte[] bytes = responseString.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.getResponseHeaders().set("Content-Length", String.valueOf(bytes.length));
             exchange.sendResponseHeaders(200, bytes.length);
             OutputStream outputStream = exchange.getResponseBody();
             outputStream.write(bytes);
