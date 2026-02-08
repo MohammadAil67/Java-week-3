@@ -61,6 +61,7 @@ public class MessageDatabase {
                 "epoch TEXT NOT NULL, " +
                 "orbital_elements TEXT, " +
                 "state_vector TEXT, " +
+                "record_payload TEXT, " +
                 "record_time_received INTEGER NOT NULL, " +
                 "record_owner TEXT NOT NULL, " +
                 "FOREIGN KEY (record_owner) REFERENCES users(nickname))";
@@ -147,12 +148,12 @@ public class MessageDatabase {
     
     public int addMessage(String targetBodyName, String centerBodyName, String epoch,
                           JSONObject orbitalElements, JSONObject stateVector,
-                          String ownerNickname) throws SQLException {
+                          String ownerNickname, String recordPayload) throws SQLException {
         long timestamp = ZonedDateTime.now(ZoneOffset.UTC).toInstant().toEpochMilli();
         
         String insertQuery = "INSERT INTO messages " +
             "(target_body_name, center_body_name, epoch, orbital_elements, state_vector, " +
-            "record_time_received, record_owner) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            "record_payload, record_time_received, record_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         
         PreparedStatement statement = connection.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS);
         statement.setString(1, targetBodyName);
@@ -160,8 +161,9 @@ public class MessageDatabase {
         statement.setString(3, epoch);
         statement.setString(4, orbitalElements != null ? orbitalElements.toString() : null);
         statement.setString(5, stateVector != null ? stateVector.toString() : null);
-        statement.setLong(6, timestamp);
-        statement.setString(7, ownerNickname);
+        statement.setString(6, recordPayload);
+        statement.setLong(7, timestamp);
+        statement.setString(8, ownerNickname);
         
         statement.executeUpdate();
         
@@ -180,7 +182,7 @@ public class MessageDatabase {
     public List<ObservationRecord> getAllMessages() throws SQLException {
         List<ObservationRecord> messages = new ArrayList<>();
         String query = "SELECT id, target_body_name, center_body_name, epoch, orbital_elements, " +
-                       "state_vector, record_time_received, record_owner FROM messages";
+                       "state_vector, record_payload, record_time_received, record_owner FROM messages";
         
         Statement statement = connection.createStatement();
         ResultSet resultSet = statement.executeQuery(query);
@@ -197,6 +199,8 @@ public class MessageDatabase {
             String stateVectorStr = resultSet.getString("state_vector");
             JSONObject stateVector = stateVectorStr != null ? new JSONObject(stateVectorStr) : null;
             
+            String recordPayload = resultSet.getString("record_payload");
+            
             long recordTimeReceived = resultSet.getLong("record_time_received");
             String recordOwner = resultSet.getString("record_owner");
             
@@ -208,6 +212,7 @@ public class MessageDatabase {
             ObservationRecord record = new ObservationRecord(
                 targetBodyName, centerBodyName, epoch, orbitalElements, stateVector);
             record.setMetadata(id, timestamp, recordOwner);
+            record.setRecordPayload(recordPayload);
             
             messages.add(record);
         }

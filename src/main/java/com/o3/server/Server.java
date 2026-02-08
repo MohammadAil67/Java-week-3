@@ -161,6 +161,15 @@ public class Server implements HttpHandler {
             JSONObject orbitalElements = hasOrbitalElements ? json.getJSONObject("orbital_elements") : null;
             JSONObject stateVector = hasStateVector ? json.getJSONObject("state_vector") : null;
 
+            // Extract record_payload from metadata if present
+            String recordPayload = null;
+            if (json.has("metadata")) {
+                JSONObject metadata = json.getJSONObject("metadata");
+                if (metadata.has("record_payload")) {
+                    recordPayload = metadata.getString("record_payload");
+                }
+            }
+
             // Validate data types in orbital_elements
             if (orbitalElements != null && !validateOrbitalElements(orbitalElements)) {
                 sendResponse(exchange, 400, "Invalid data types in orbital_elements");
@@ -186,7 +195,7 @@ public class Server implements HttpHandler {
             }
 
             // Store the message in the database
-            db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname);
+            db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname, recordPayload);
 
             // Send success response
             exchange.sendResponseHeaders(200, -1);

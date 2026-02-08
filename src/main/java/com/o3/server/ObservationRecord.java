@@ -14,6 +14,7 @@ public class ObservationRecord {
     private int id;
     private String recordTimeReceived;
     private String recordOwner;
+    private String recordPayload;
 
     public ObservationRecord(String targetBodyName, String centerBodyName, String epoch, 
                             JSONObject orbitalElements, JSONObject stateVector) {
@@ -25,6 +26,7 @@ public class ObservationRecord {
         this.id = -1; // Default value
         this.recordTimeReceived = null;
         this.recordOwner = null;
+        this.recordPayload = null;
     }
 
     public String getTargetBodyName() {
@@ -85,6 +87,14 @@ public class ObservationRecord {
         return recordOwner;
     }
 
+    public String getRecordPayload() {
+        return recordPayload;
+    }
+
+    public void setRecordPayload(String recordPayload) {
+        this.recordPayload = recordPayload;
+    }
+
     public JSONObject toJSON() {
         JSONObject json = new JSONObject();
         json.put("target_body_name", targetBodyName);
@@ -105,6 +115,9 @@ public class ObservationRecord {
             metadata.put("record_time_received", recordTimeReceived);
             metadata.put("record_owner", recordOwner);
             metadata.put("id", id);
+            if (recordPayload != null) {
+                metadata.put("record_payload", recordPayload);
+            }
             json.put("metadata", metadata);
         }
         
