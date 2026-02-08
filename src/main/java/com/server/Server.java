@@ -146,6 +146,18 @@ public class Server implements HttpHandler {
             JSONObject orbitalElements = hasOrbitalElements ? json.getJSONObject("orbital_elements") : null;
             JSONObject stateVector = hasStateVector ? json.getJSONObject("state_vector") : null;
 
+            // Validate data types in orbital_elements
+            if (orbitalElements != null && !validateOrbitalElements(orbitalElements)) {
+                sendResponse(exchange, 400, "Invalid data types in orbital_elements");
+                return;
+            }
+
+            // Validate data types in state_vector
+            if (stateVector != null && !validateStateVector(stateVector)) {
+                sendResponse(exchange, 400, "Invalid data types in state_vector");
+                return;
+            }
+
             // Store the observation
             ObservationRecord record = new ObservationRecord(
                 targetBodyName, centerBodyName, epoch, orbitalElements, stateVector);
@@ -195,5 +207,68 @@ public class Server implements HttpHandler {
         outputStream.write(bytes);
         outputStream.flush();
         outputStream.close();
+    }
+
+    /**
+     * Validates that orbital_elements contains numeric values for all expected fields
+     */
+    private boolean validateOrbitalElements(JSONObject orbitalElements) {
+        try {
+            // Expected numeric fields in orbital_elements
+            String[] numericFields = {
+                "semi_major_axis_au",
+                "eccentricity",
+                "inclination_deg",
+                "longitude_ascending_node_deg",
+                "argument_of_periapsis_deg",
+                "mean_anomaly_deg"
+            };
+
+            for (String field : numericFields) {
+                if (orbitalElements.has(field)) {
+                    Object value = orbitalElements.get(field);
+                    // Check if value is a number (not a string or other type)
+                    if (!(value instanceof Number)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Validates that state_vector contains arrays of numbers for position and velocity
+     */
+    private boolean validateStateVector(JSONObject stateVector) {
+        try {
+            // Validate position_au is an array of numbers
+            if (stateVector.has("position_au")) {
+                JSONArray positionAu = stateVector.getJSONArray("position_au");
+                for (int i = 0; i < positionAu.length(); i++) {
+                    Object value = positionAu.get(i);
+                    if (!(value instanceof Number)) {
+                        return false;
+                    }
+                }
+            }
+
+            // Validate velocity_au_per_day is an array of numbers
+            if (stateVector.has("velocity_au_per_day")) {
+                JSONArray velocityAuPerDay = stateVector.getJSONArray("velocity_au_per_day");
+                for (int i = 0; i < velocityAuPerDay.length(); i++) {
+                    Object value = velocityAuPerDay.get(i);
+                    if (!(value instanceof Number)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
