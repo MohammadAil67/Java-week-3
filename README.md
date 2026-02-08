@@ -95,8 +95,13 @@ curl -k -u testuser:testpass \
 
 **Response:**
 - `200 OK` - Message stored successfully
-- `400 Bad Request` - Invalid JSON, missing required fields, or both orbital_elements and state_vector are missing
+- `400 Bad Request` - Invalid JSON, missing required fields, invalid data types, or both orbital_elements and state_vector are missing
 - `401 Unauthorized` - Authentication required
+
+**Data Type Requirements:**
+- All fields in `orbital_elements` must be numeric values (not strings)
+- `position_au` and `velocity_au_per_day` in `state_vector` must be arrays of numeric values
+- The server validates data types and returns 400 for any type mismatches
 
 **Note:** Messages MUST contain at least one of `orbital_elements` or `state_vector` (or both), otherwise the server will reject with 400 error.
 
@@ -190,6 +195,7 @@ All functionality has been tested with curl:
 - ✅ Posting messages with state_vector only
 - ✅ Posting messages with both
 - ✅ Rejecting messages without either
+- ✅ Rejecting messages with invalid data types (strings instead of numbers)
 - ✅ Retrieving messages as JSON array
 - ✅ Authentication enforcement
 - ✅ Unsupported method handling
