@@ -214,7 +214,7 @@ public class Server implements HttpHandler {
      */
     private boolean validateOrbitalElements(JSONObject orbitalElements) {
         try {
-            // Expected numeric fields in orbital_elements
+            // Expected numeric fields in orbital_elements - all are required
             String[] numericFields = {
                 "semi_major_axis_au",
                 "eccentricity",
@@ -225,12 +225,18 @@ public class Server implements HttpHandler {
             };
 
             for (String field : numericFields) {
-                if (orbitalElements.has(field)) {
-                    Object value = orbitalElements.get(field);
-                    // Check if value is a number (not a string or other type)
-                    if (!(value instanceof Number)) {
-                        return false;
-                    }
+                // All fields must be present
+                if (!orbitalElements.has(field)) {
+                    return false;
+                }
+                Object value = orbitalElements.get(field);
+                // Check if value is null
+                if (value == null || value == JSONObject.NULL) {
+                    return false;
+                }
+                // Check if value is a number (not a string or other type)
+                if (!(value instanceof Number)) {
+                    return false;
                 }
             }
             return true;
@@ -244,25 +250,32 @@ public class Server implements HttpHandler {
      */
     private boolean validateStateVector(JSONObject stateVector) {
         try {
+            // Both position_au and velocity_au_per_day are required
+            if (!stateVector.has("position_au") || !stateVector.has("velocity_au_per_day")) {
+                return false;
+            }
+
             // Validate position_au is an array of numbers
-            if (stateVector.has("position_au")) {
-                JSONArray positionAu = stateVector.getJSONArray("position_au");
-                for (int i = 0; i < positionAu.length(); i++) {
-                    Object value = positionAu.get(i);
-                    if (!(value instanceof Number)) {
-                        return false;
-                    }
+            JSONArray positionAu = stateVector.getJSONArray("position_au");
+            if (positionAu == null || positionAu.length() == 0) {
+                return false;
+            }
+            for (int i = 0; i < positionAu.length(); i++) {
+                Object value = positionAu.get(i);
+                if (value == null || value == JSONObject.NULL || !(value instanceof Number)) {
+                    return false;
                 }
             }
 
             // Validate velocity_au_per_day is an array of numbers
-            if (stateVector.has("velocity_au_per_day")) {
-                JSONArray velocityAuPerDay = stateVector.getJSONArray("velocity_au_per_day");
-                for (int i = 0; i < velocityAuPerDay.length(); i++) {
-                    Object value = velocityAuPerDay.get(i);
-                    if (!(value instanceof Number)) {
-                        return false;
-                    }
+            JSONArray velocityAuPerDay = stateVector.getJSONArray("velocity_au_per_day");
+            if (velocityAuPerDay == null || velocityAuPerDay.length() == 0) {
+                return false;
+            }
+            for (int i = 0; i < velocityAuPerDay.length(); i++) {
+                Object value = velocityAuPerDay.get(i);
+                if (value == null || value == JSONObject.NULL || !(value instanceof Number)) {
+                    return false;
                 }
             }
 
