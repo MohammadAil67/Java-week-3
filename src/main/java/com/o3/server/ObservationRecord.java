@@ -2,6 +2,8 @@ package com.o3.server;
 
 import org.json.JSONObject;
 import org.json.JSONArray;
+import java.util.List;
+import java.util.ArrayList;
 
 public class ObservationRecord {
     private String targetBodyName;
@@ -15,6 +17,7 @@ public class ObservationRecord {
     private String recordTimeReceived;
     private String recordOwner;
     private String recordPayload;
+    private List<Observatory> observatories;
 
     public ObservationRecord(String targetBodyName, String centerBodyName, String epoch, 
                             JSONObject orbitalElements, JSONObject stateVector) {
@@ -27,6 +30,7 @@ public class ObservationRecord {
         this.recordTimeReceived = null;
         this.recordOwner = null;
         this.recordPayload = null;
+        this.observatories = new ArrayList<>();
     }
 
     public String getTargetBodyName() {
@@ -95,6 +99,18 @@ public class ObservationRecord {
         this.recordPayload = recordPayload;
     }
 
+    public List<Observatory> getObservatories() {
+        return observatories;
+    }
+
+    public void setObservatories(List<Observatory> observatories) {
+        this.observatories = observatories;
+    }
+
+    public void addObservatory(Observatory observatory) {
+        this.observatories.add(observatory);
+    }
+
     public JSONObject toJSON() {
         JSONObject json = new JSONObject();
         json.put("target_body_name", targetBodyName);
@@ -115,6 +131,16 @@ public class ObservationRecord {
             metadata.put("record_time_received", recordTimeReceived);
             metadata.put("record_owner", recordOwner);
             metadata.put("id", id);
+            
+            // Add observatory information if present
+            if (observatories != null && !observatories.isEmpty()) {
+                JSONArray observatoryArray = new JSONArray();
+                for (Observatory obs : observatories) {
+                    observatoryArray.put(obs.toJSON());
+                }
+                metadata.put("observatory", observatoryArray);
+            }
+            
             if (recordPayload != null) {
                 metadata.put("record_payload", recordPayload);
             }
