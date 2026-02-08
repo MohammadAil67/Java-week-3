@@ -54,23 +54,25 @@ public class RegistrationHandler implements HttpHandler {
             JSONObject json = new JSONObject(requestBody);
             
             // Validate required fields
-            if (!json.has("username") || !json.has("password") || !json.has("email")) {
-                sendResponse(exchange, 400, "Missing required fields: username, password, email");
+            if (!json.has("username") || !json.has("password") || !json.has("email") || !json.has("nickname")) {
+                sendResponse(exchange, 400, "Missing required fields: username, password, email, nickname");
                 return;
             }
 
             String username = json.getString("username");
             String password = json.getString("password");
             String email = json.getString("email");
+            String nickname = json.getString("nickname");
 
             // Validate fields are not empty
-            if (username.trim().isEmpty() || password.trim().isEmpty() || email.trim().isEmpty()) {
+            if (username.trim().isEmpty() || password.trim().isEmpty() || 
+                email.trim().isEmpty() || nickname.trim().isEmpty()) {
                 sendResponse(exchange, 400, "Fields cannot be empty");
                 return;
             }
 
             // Add user
-            if (authenticator.addUser(username, password, email)) {
+            if (authenticator.addUser(username, password, email, nickname)) {
                 exchange.sendResponseHeaders(200, -1);
             } else {
                 sendResponse(exchange, 409, "User already registered");

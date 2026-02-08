@@ -10,12 +10,11 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.sql.SQLException;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 public class Server implements HttpHandler {
-    private static List<ObservationRecord> observations = new CopyOnWriteArrayList<>();
 
     public static void main(String[] args) {
         try {
@@ -27,6 +26,22 @@ public class Server implements HttpHandler {
 
             String keystorePath = args[0];
             String keystorePassword = args[1];
+            
+            // Initialize database
+            String dbPath = System.getenv("DATABASE_PATH");
+            if (dbPath == null || dbPath.trim().isEmpty()) {
+                System.err.println("DATABASE_PATH environment variable not set");
+                return;
+            }
+            
+            MessageDatabase db = MessageDatabase.getInstance();
+            try {
+                db.open(dbPath);
+                System.out.println("Database opened successfully at: " + dbPath);
+            } catch (SQLException e) {
+                System.err.println("Failed to open database: " + e.getMessage());
+                return;
+            }
 
             // Create HTTPS server
             HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
@@ -157,31 +172,48 @@ public class Server implements HttpHandler {
                 sendResponse(exchange, 400, "Invalid data types in state_vector");
                 return;
             }
+            
+            // Get the username from the authenticated principal
+            String username = exchange.getPrincipal().getUsername();
+            
+            // Get the nickname from the database
+            MessageDatabase db = MessageDatabase.getInstance();
+            String nickname = db.getUserNickname(username);
+            
+            if (nickname == null) {
+                sendResponse(exchange, 500, "User nickname not found");
+                return;
+            }
 
-            // Store the observation
-            ObservationRecord record = new ObservationRecord(
-                targetBodyName, centerBodyName, epoch, orbitalElements, stateVector);
-            observations.add(record);
+            // Store the message in the database
+            db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname);
 
             // Send success response
             exchange.sendResponseHeaders(200, -1);
 
         } catch (JSONException e) {
             sendResponse(exchange, 400, "Invalid JSON format");
+        } catch (SQLException e) {
+            System.err.println("Database error: " + e.getMessage());
+            sendResponse(exchange, 500, "Database error");
         }
     }
 
     private void handleGet(HttpExchange exchange) throws IOException {
         try {
+            // Get messages from database
+            MessageDatabase db = MessageDatabase.getInstance();
+            List<ObservationRecord> messages = db.getAllMessages();
+            
             // Check if there are no observations
-            if (observations.isEmpty()) {
+            if (messages.isEmpty()) {
                 exchange.sendResponseHeaders(204, -1);
                 return;
             }
 
             // Create JSON array of all observations
             JSONArray responseArray = new JSONArray();
-            for (ObservationRecord record : observations) {
+            for (ObservationRecord record : messages) {
                 responseArray.put(record.toJSON());
             }
 
@@ -194,6 +226,9 @@ public class Server implements HttpHandler {
             outputStream.flush();
             outputStream.close();
 
+        } catch (SQLException e) {
+            System.err.println("Database error: " + e.getMessage());
+            sendResponse(exchange, 500, "Database error");
         } catch (Exception e) {
             e.printStackTrace(); // Log error for debugging
             sendResponse(exchange, 500, "Internal server error");
