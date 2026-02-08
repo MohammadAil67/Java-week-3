@@ -1,4 +1,4 @@
-package com.server;
+package com.o3.server;
 
 public class User {
     private String username;

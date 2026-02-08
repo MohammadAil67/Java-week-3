@@ -1,4 +1,4 @@
-package com.server;
+package com.o3.server;
 
 import com.sun.net.httpserver.*;
 import org.json.JSONArray;
