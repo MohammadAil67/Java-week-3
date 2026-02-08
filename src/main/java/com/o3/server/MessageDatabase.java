@@ -200,9 +200,10 @@ public class MessageDatabase {
                 obsStatement.setDouble(2, obs.getLatitude());
                 obsStatement.setDouble(3, obs.getLongitude());
                 obsStatement.setString(4, obs.getObservatoryName());
-                obsStatement.executeUpdate();
+                obsStatement.addBatch();
             }
             
+            obsStatement.executeBatch();
             obsStatement.close();
         }
         

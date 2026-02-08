@@ -176,7 +176,7 @@ public class Server implements HttpHandler {
             }
             
             recordPayload = metadata.getString("record_payload");
-            if (recordPayload == null || recordPayload.trim().isEmpty()) {
+            if (recordPayload.trim().isEmpty()) {
                 sendResponse(exchange, 400, "record_payload cannot be empty");
                 return;
             }
