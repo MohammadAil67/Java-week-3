@@ -244,9 +244,9 @@ public class Server implements HttpHandler {
             // Store the message in the database
             db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname, recordPayload, observatories);
 
-            // Send success response with 201 Created status
+            // Send success response with 200 OK status
             exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(201, -1);
+            exchange.sendResponseHeaders(200, -1);
 
         } catch (JSONException e) {
             sendResponse(exchange, 400, "Invalid JSON format");
