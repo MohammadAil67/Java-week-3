@@ -103,6 +103,8 @@ public class Server implements HttpHandler {
             handlePost(exchange);
         } else if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
             handleGet(exchange);
+        } else if (exchange.getRequestMethod().equalsIgnoreCase("PUT")) {
+            handlePut(exchange);
         } else {
             // Handle other methods (DELETE, etc.)
             String response = "Not supported";
@@ -199,6 +201,18 @@ public class Server implements HttpHandler {
                     String observatoryName = obsJson.getString("observatory_name");
                     
                     Observatory obs = new Observatory(latitude, longitude, observatoryName);
+                    
+                    // Check if observatory_weather field is present (can be any type)
+                    if (obsJson.has("observatory_weather")) {
+                        // Fetch weather data using the coordinates
+                        JSONObject weatherData = WeatherFetcher.fetchWeatherData(latitude, longitude);
+                        obs.setWeatherData(
+                            weatherData.getDouble("temperature_in_kelvins"),
+                            weatherData.getDouble("cloudiness_percentage"),
+                            weatherData.getDouble("background_light_volume")
+                        );
+                    }
+                    
                     observatories.add(obs);
                 }
             }
@@ -230,9 +244,9 @@ public class Server implements HttpHandler {
             // Store the message in the database
             db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname, recordPayload, observatories);
 
-            // Send success response with 201 Created status
+            // Send success response with 200 OK status
             exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(201, -1);
+            exchange.sendResponseHeaders(200, -1);
 
         } catch (JSONException e) {
             sendResponse(exchange, 400, "Invalid JSON format");
@@ -362,6 +376,200 @@ public class Server implements HttpHandler {
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    private void handlePut(HttpExchange exchange) throws IOException {
+        try {
+            // Parse query parameters to get the id
+            String query = exchange.getRequestURI().getQuery();
+            if (query == null || !query.contains("id=")) {
+                sendResponse(exchange, 400, "Missing id parameter");
+                return;
+            }
+            
+            int recordId;
+            try {
+                String idStr = query.substring(query.indexOf("id=") + 3);
+                // Handle if there are multiple query parameters
+                if (idStr.contains("&")) {
+                    idStr = idStr.substring(0, idStr.indexOf("&"));
+                }
+                recordId = Integer.parseInt(idStr);
+            } catch (NumberFormatException e) {
+                sendResponse(exchange, 400, "Invalid id parameter");
+                return;
+            }
+            
+            // Check Content-Type
+            String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+            if (contentType == null || !contentType.equals("application/json")) {
+                sendResponse(exchange, 400, "Content-Type must be application/json");
+                return;
+            }
+            
+            // Read request body
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8));
+            String requestBody = reader.lines().collect(Collectors.joining("\n"));
+            reader.close();
+            
+            // Parse JSON
+            JSONObject json = new JSONObject(requestBody);
+            
+            // Validate required fields
+            if (!json.has("target_body_name") || !json.has("center_body_name") || !json.has("epoch")) {
+                sendResponse(exchange, 400, "Missing required fields");
+                return;
+            }
+            
+            // Check that at least one of orbital_elements or state_vector is present
+            boolean hasOrbitalElements = json.has("orbital_elements");
+            boolean hasStateVector = json.has("state_vector");
+            
+            if (!hasOrbitalElements && !hasStateVector) {
+                sendResponse(exchange, 400, "Message must contain orbital_elements and/or state_vector");
+                return;
+            }
+            
+            // Extract data
+            String targetBodyName = json.getString("target_body_name");
+            String centerBodyName = json.getString("center_body_name");
+            String epoch = json.getString("epoch");
+            
+            // Validate fields are not empty
+            if (targetBodyName.trim().isEmpty() || centerBodyName.trim().isEmpty() || epoch.trim().isEmpty()) {
+                sendResponse(exchange, 400, "Required fields cannot be empty");
+                return;
+            }
+            
+            JSONObject orbitalElements = hasOrbitalElements ? json.getJSONObject("orbital_elements") : null;
+            JSONObject stateVector = hasStateVector ? json.getJSONObject("state_vector") : null;
+            
+            // Extract metadata - record_payload is mandatory
+            if (!json.has("metadata")) {
+                sendResponse(exchange, 400, "Missing required field: metadata");
+                return;
+            }
+            
+            JSONObject metadata = json.getJSONObject("metadata");
+            String recordPayload = null;
+            if (metadata.has("record_payload")) {
+                recordPayload = metadata.getString("record_payload");
+                if (recordPayload.trim().isEmpty()) {
+                    sendResponse(exchange, 400, "record_payload cannot be empty");
+                    return;
+                }
+            } else {
+                sendResponse(exchange, 400, "Missing required field: metadata.record_payload");
+                return;
+            }
+            
+            // Extract update_reason (optional)
+            String updateReason = null;
+            if (metadata.has("update_reason")) {
+                updateReason = metadata.getString("update_reason");
+            }
+            
+            // Extract observatory information if present
+            List<Observatory> observatories = new ArrayList<>();
+            if (metadata.has("observatory")) {
+                JSONArray observatoryArray = metadata.getJSONArray("observatory");
+                for (int i = 0; i < observatoryArray.length(); i++) {
+                    JSONObject obsJson = observatoryArray.getJSONObject(i);
+                    
+                    // Validate observatory fields
+                    if (!obsJson.has("latitude") || !obsJson.has("longitude") || !obsJson.has("observatory_name")) {
+                        sendResponse(exchange, 400, "Invalid observatory data: missing required fields");
+                        return;
+                    }
+                    
+                    double latitude = obsJson.getDouble("latitude");
+                    double longitude = obsJson.getDouble("longitude");
+                    String observatoryName = obsJson.getString("observatory_name");
+                    
+                    Observatory obs = new Observatory(latitude, longitude, observatoryName);
+                    
+                    // Check if observatory_weather field is present (can be any type)
+                    if (obsJson.has("observatory_weather")) {
+                        // Fetch weather data using the coordinates
+                        JSONObject weatherData = WeatherFetcher.fetchWeatherData(latitude, longitude);
+                        obs.setWeatherData(
+                            weatherData.getDouble("temperature_in_kelvins"),
+                            weatherData.getDouble("cloudiness_percentage"),
+                            weatherData.getDouble("background_light_volume")
+                        );
+                    }
+                    
+                    observatories.add(obs);
+                }
+            }
+            
+            // Validate data types in orbital_elements
+            if (orbitalElements != null && !validateOrbitalElements(orbitalElements)) {
+                sendResponse(exchange, 400, "Invalid data types in orbital_elements");
+                return;
+            }
+            
+            // Validate data types in state_vector
+            if (stateVector != null && !validateStateVector(stateVector)) {
+                sendResponse(exchange, 400, "Invalid data types in state_vector");
+                return;
+            }
+            
+            // Get the username from the authenticated principal
+            String username = exchange.getPrincipal().getUsername();
+            
+            // Get the nickname from the database
+            MessageDatabase db = MessageDatabase.getInstance();
+            String nickname = db.getUserNickname(username);
+            
+            if (nickname == null) {
+                sendResponse(exchange, 500, "User nickname not found");
+                return;
+            }
+            
+            // Check if the message exists and verify ownership
+            ObservationRecord existingRecord = db.getMessageById(recordId);
+            if (existingRecord == null) {
+                sendResponse(exchange, 404, "Message not found");
+                return;
+            }
+            
+            if (!existingRecord.getRecordOwner().equals(nickname)) {
+                sendResponse(exchange, 403, "Only the owner can update this message");
+                return;
+            }
+            
+            // Update the message in the database
+            boolean success = db.updateMessage(recordId, targetBodyName, centerBodyName, epoch, 
+                                              orbitalElements, stateVector, recordPayload, 
+                                              observatories, updateReason);
+            
+            if (!success) {
+                sendResponse(exchange, 500, "Failed to update message");
+                return;
+            }
+            
+            // Retrieve the updated record
+            ObservationRecord updatedRecord = db.getMessageById(recordId);
+            
+            // Send response with the updated record
+            String responseString = updatedRecord.toJSON().toString();
+            byte[] bytes = responseString.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.getResponseHeaders().set("Content-Length", String.valueOf(bytes.length));
+            exchange.sendResponseHeaders(200, bytes.length);
+            OutputStream outputStream = exchange.getResponseBody();
+            outputStream.write(bytes);
+            outputStream.flush();
+            outputStream.close();
+            
+        } catch (JSONException e) {
+            sendResponse(exchange, 400, "Invalid JSON format");
+        } catch (SQLException e) {
+            System.err.println("Database error: " + e.getMessage());
+            sendResponse(exchange, 500, "Database error");
         }
     }
 }
