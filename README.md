@@ -84,7 +84,9 @@ curl -k -d '{"username":"testuser","password":"testpass","email":"test@example.c
 - `400 Bad Request` - Invalid JSON or missing fields
 - `409 Conflict` - User already registered
 
-**Note:** Passwords are hashed using BCrypt before storage for security.
+**Note:** 
+- Passwords are hashed using BCrypt before storage for security.
+- The `nickname` you provide during registration will be used as the `record_owner` when posting orbital data.
 
 ### 2. Post Orbital Data (Authentication Required)
 

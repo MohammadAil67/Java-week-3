@@ -190,7 +190,7 @@ public class Server implements HttpHandler {
             }
             
             String recordOwner = metadata.getString("record_owner");
-            if (recordOwner.trim().isEmpty()) {
+            if (recordOwner == null || recordOwner.trim().isEmpty()) {
                 sendResponse(exchange, 400, "record_owner cannot be empty");
                 return;
             }
