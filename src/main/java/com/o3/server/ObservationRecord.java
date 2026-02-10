@@ -18,6 +18,8 @@ public class ObservationRecord {
     private String recordOwner;
     private String recordPayload;
     private List<Observatory> observatories;
+    private String updateReason;
+    private String edited;
 
     public ObservationRecord(String targetBodyName, String centerBodyName, String epoch, 
                             JSONObject orbitalElements, JSONObject stateVector) {
@@ -31,6 +33,8 @@ public class ObservationRecord {
         this.recordOwner = null;
         this.recordPayload = null;
         this.observatories = new ArrayList<>();
+        this.updateReason = null;
+        this.edited = null;
     }
 
     public String getTargetBodyName() {
@@ -111,6 +115,22 @@ public class ObservationRecord {
         this.observatories.add(observatory);
     }
 
+    public String getUpdateReason() {
+        return updateReason;
+    }
+
+    public void setUpdateReason(String updateReason) {
+        this.updateReason = updateReason;
+    }
+
+    public String getEdited() {
+        return edited;
+    }
+
+    public void setEdited(String edited) {
+        this.edited = edited;
+    }
+
     public JSONObject toJSON() {
         JSONObject json = new JSONObject();
         json.put("target_body_name", targetBodyName);
@@ -144,6 +164,15 @@ public class ObservationRecord {
             if (recordPayload != null) {
                 metadata.put("record_payload", recordPayload);
             }
+            
+            // Add update_reason and edited fields if present
+            if (updateReason != null) {
+                metadata.put("update_reason", updateReason);
+            }
+            if (edited != null) {
+                metadata.put("edited", edited);
+            }
+            
             json.put("metadata", metadata);
         }
         
