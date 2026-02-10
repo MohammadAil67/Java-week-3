@@ -259,7 +259,10 @@ public class MessageDatabase {
             String recordOwner = resultSet.getString("record_owner");
             
             String updateReason = resultSet.getString("update_reason");
-            Long editedTimestamp = resultSet.getObject("edited", Long.class);
+            
+            // Get edited timestamp - handle NULL
+            long editedTimestamp = resultSet.getLong("edited");
+            boolean hasEdited = !resultSet.wasNull();
             
             // Convert timestamp to ISO 8601 format in UTC
             ZonedDateTime dateTime = ZonedDateTime.ofInstant(
@@ -277,7 +280,7 @@ public class MessageDatabase {
             }
             
             // Set edited timestamp if present
-            if (editedTimestamp != null) {
+            if (hasEdited) {
                 ZonedDateTime editedDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochMilli(editedTimestamp), ZoneOffset.UTC);
                 record.setEdited(editedDateTime.toString());
@@ -354,7 +357,8 @@ public class MessageDatabase {
             long recordTimeReceived = resultSet.getLong("record_time_received");
             String recordOwner = resultSet.getString("record_owner");
             String updateReason = resultSet.getString("update_reason");
-            Long editedTimestamp = resultSet.getObject("edited", Long.class);
+            long editedTimestamp = resultSet.getLong("edited");
+            boolean hasEdited = !resultSet.wasNull();
             
             // Convert timestamp to ISO 8601 format in UTC
             ZonedDateTime dateTime = ZonedDateTime.ofInstant(
@@ -369,7 +373,7 @@ public class MessageDatabase {
                 record.setUpdateReason(updateReason);
             }
             
-            if (editedTimestamp != null) {
+            if (hasEdited) {
                 ZonedDateTime editedDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochMilli(editedTimestamp), ZoneOffset.UTC);
                 record.setEdited(editedDateTime.toString());
