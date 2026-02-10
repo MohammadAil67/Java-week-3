@@ -183,6 +183,18 @@ public class Server implements HttpHandler {
                 return;
             }
             
+            // Extract record_owner from metadata - it's mandatory
+            if (!metadata.has("record_owner")) {
+                sendResponse(exchange, 400, "Missing required field: metadata.record_owner");
+                return;
+            }
+            
+            String recordOwner = metadata.getString("record_owner");
+            if (recordOwner == null || recordOwner.trim().isEmpty()) {
+                sendResponse(exchange, 400, "record_owner cannot be empty");
+                return;
+            }
+            
             // Extract observatory information if present
             List<Observatory> observatories = new ArrayList<>();
             if (metadata.has("observatory")) {
@@ -232,17 +244,23 @@ public class Server implements HttpHandler {
             // Get the username from the authenticated principal
             String username = exchange.getPrincipal().getUsername();
             
-            // Get the nickname from the database
+            // Get the nickname from the database for validation
             MessageDatabase db = MessageDatabase.getInstance();
-            String nickname = db.getUserNickname(username);
+            String userNickname = db.getUserNickname(username);
             
-            if (nickname == null) {
+            if (userNickname == null) {
                 sendResponse(exchange, 500, "User nickname not found");
                 return;
             }
+            
+            // Validate that record_owner matches the authenticated user's nickname (security check)
+            if (!recordOwner.equals(userNickname)) {
+                sendResponse(exchange, 403, "record_owner must match authenticated user's nickname");
+                return;
+            }
 
-            // Store the message in the database
-            db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, nickname, recordPayload, observatories);
+            // Store the message in the database using the validated record_owner
+            db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, recordOwner, recordPayload, observatories);
 
             // Send success response with 200 OK status
             exchange.getResponseHeaders().set("Content-Type", "application/json");

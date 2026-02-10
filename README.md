@@ -84,36 +84,40 @@ curl -k -d '{"username":"testuser","password":"testpass","email":"test@example.c
 - `400 Bad Request` - Invalid JSON or missing fields
 - `409 Conflict` - User already registered
 
-**Note:** Passwords are hashed using BCrypt before storage for security.
+**Note:** 
+- Passwords are hashed using BCrypt before storage for security.
+- The `nickname` you provide during registration must be included as `record_owner` in the metadata when posting orbital data. The server will validate that the `record_owner` matches your authenticated user's nickname for security.
 
 ### 2. Post Orbital Data (Authentication Required)
 
 **POST** `/datarecord`
 
-Send orbital observation data. **record_payload is mandatory** in the metadata section:
+Send orbital observation data. **record_payload and record_owner are mandatory** in the metadata section. 
+
+**Important:** The `record_owner` field must contain your user's nickname (the one you provided during registration). The server validates that it matches your authenticated user's nickname for security. If you don't remember your nickname, it's the value you specified in the `nickname` field during registration.
 
 ```bash
 # With orbital_elements only
 curl -k -u testuser:testpass \
-  -d '{"target_body_name":"Moon 301","center_body_name":"Earth 399","epoch":"2025-01-01T00:00:00Z","orbital_elements":{"semi_major_axis_au":1.458,"eccentricity":0.223,"inclination_deg":10.829,"longitude_ascending_node_deg":304.3,"argument_of_periapsis_deg":178.7,"mean_anomaly_deg":120.5},"metadata":{"record_payload":"Example payload"}}' \
+  -d '{"target_body_name":"Moon 301","center_body_name":"Earth 399","epoch":"2025-01-01T00:00:00Z","orbital_elements":{"semi_major_axis_au":1.458,"eccentricity":0.223,"inclination_deg":10.829,"longitude_ascending_node_deg":304.3,"argument_of_periapsis_deg":178.7,"mean_anomaly_deg":120.5},"metadata":{"record_owner":"TestNick","record_payload":"Example payload"}}' \
   https://localhost:8001/datarecord \
   -H 'Content-Type: application/json'
 
 # With state_vector only
 curl -k -u testuser:testpass \
-  -d '{"target_body_name":"Asteroid 42","center_body_name":"Sun 10","epoch":"2025-02-01T00:00:00Z","state_vector":{"position_au":[0.123,1.456,-0.789],"velocity_au_per_day":[-0.012,0.015,0.001]},"metadata":{"record_payload":"Asteroid observation"}}' \
+  -d '{"target_body_name":"Asteroid 42","center_body_name":"Sun 10","epoch":"2025-02-01T00:00:00Z","state_vector":{"position_au":[0.123,1.456,-0.789],"velocity_au_per_day":[-0.012,0.015,0.001]},"metadata":{"record_owner":"TestNick","record_payload":"Asteroid observation"}}' \
   https://localhost:8001/datarecord \
   -H 'Content-Type: application/json'
 
 # With both orbital_elements and state_vector
 curl -k -u testuser:testpass \
-  -d '{"target_body_name":"Comet X","center_body_name":"Sun 10","epoch":"2025-03-01T00:00:00Z","orbital_elements":{"semi_major_axis_au":2.5,"eccentricity":0.5,"inclination_deg":20.0,"longitude_ascending_node_deg":100.0,"argument_of_periapsis_deg":50.0,"mean_anomaly_deg":80.0},"state_vector":{"position_au":[1.0,2.0,3.0],"velocity_au_per_day":[0.01,0.02,0.03]},"metadata":{"record_payload":"Comet observation"}}' \
+  -d '{"target_body_name":"Comet X","center_body_name":"Sun 10","epoch":"2025-03-01T00:00:00Z","orbital_elements":{"semi_major_axis_au":2.5,"eccentricity":0.5,"inclination_deg":20.0,"longitude_ascending_node_deg":100.0,"argument_of_periapsis_deg":50.0,"mean_anomaly_deg":80.0},"state_vector":{"position_au":[1.0,2.0,3.0],"velocity_au_per_day":[0.01,0.02,0.03]},"metadata":{"record_owner":"TestNick","record_payload":"Comet observation"}}' \
   https://localhost:8001/datarecord \
   -H 'Content-Type: application/json'
 
 # With observatory information
 curl -k -u testuser:testpass \
-  -d '{"target_body_name":"Mars","center_body_name":"Sun","epoch":"2025-04-01T00:00:00Z","orbital_elements":{"semi_major_axis_au":1.524,"eccentricity":0.093,"inclination_deg":1.85,"longitude_ascending_node_deg":49.5,"argument_of_periapsis_deg":286.5,"mean_anomaly_deg":19.4},"metadata":{"record_payload":"Mars from observatory","observatory":[{"latitude":43.10591835328922,"observatory_name":"Example observatory","longitude":50.85719242538301}]}}' \
+  -d '{"target_body_name":"Mars","center_body_name":"Sun","epoch":"2025-04-01T00:00:00Z","orbital_elements":{"semi_major_axis_au":1.524,"eccentricity":0.093,"inclination_deg":1.85,"longitude_ascending_node_deg":49.5,"argument_of_periapsis_deg":286.5,"mean_anomaly_deg":19.4},"metadata":{"record_owner":"TestNick","record_payload":"Mars from observatory","observatory":[{"latitude":43.10591835328922,"observatory_name":"Example observatory","longitude":50.85719242538301}]}}' \
   https://localhost:8001/datarecord \
   -H 'Content-Type: application/json'
 ```
@@ -121,14 +125,16 @@ curl -k -u testuser:testpass \
 
 **Response:**
 - `201 Created` - Message stored successfully
-- `400 Bad Request` - Invalid JSON, missing required fields, invalid data types, or both orbital_elements and state_vector are missing
+- `400 Bad Request` - Invalid JSON, missing required fields (including record_owner), invalid data types, or both orbital_elements and state_vector are missing
 - `401 Unauthorized` - Authentication required
+- `403 Forbidden` - record_owner does not match authenticated user's nickname
 
 **Data Type Requirements:**
 - All fields in `orbital_elements` must be numeric values (not strings)
 - `position_au` and `velocity_au_per_day` in `state_vector` must be arrays of numeric values
 - The server validates data types and returns 400 for any type mismatches
-- **record_payload is mandatory** in the metadata section
+- **record_payload and record_owner are mandatory** in the metadata section
+- **record_owner must match the authenticated user's nickname** for security
 
 **Note:** Messages MUST contain at least one of `orbital_elements` or `state_vector` (or both), otherwise the server will reject with 400 error.
 
