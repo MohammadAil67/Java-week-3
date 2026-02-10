@@ -86,13 +86,15 @@ curl -k -d '{"username":"testuser","password":"testpass","email":"test@example.c
 
 **Note:** 
 - Passwords are hashed using BCrypt before storage for security.
-- The `nickname` you provide during registration will be used as the `record_owner` when posting orbital data.
+- The `nickname` you provide during registration must be included as `record_owner` in the metadata when posting orbital data. The server will validate that the `record_owner` matches your authenticated user's nickname for security.
 
 ### 2. Post Orbital Data (Authentication Required)
 
 **POST** `/datarecord`
 
-Send orbital observation data. **record_payload and record_owner are mandatory** in the metadata section. The `record_owner` must match the authenticated user's nickname:
+Send orbital observation data. **record_payload and record_owner are mandatory** in the metadata section. 
+
+**Important:** The `record_owner` field must contain your user's nickname (the one you provided during registration). The server validates that it matches your authenticated user's nickname for security. If you don't remember your nickname, it's the value you specified in the `nickname` field during registration.
 
 ```bash
 # With orbital_elements only
