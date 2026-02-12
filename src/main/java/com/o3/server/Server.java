@@ -253,6 +253,8 @@ public class Server implements HttpHandler {
             }
             
             // Validate that record_owner matches the authenticated user's nickname (security check)
+            // This ensures that if a record_owner was explicitly provided, it matches the authenticated user
+            // If record_owner was auto-filled, this validation will pass (but is still necessary for security)
             if (!recordOwner.equals(userNickname)) {
                 sendResponse(exchange, 403, "record_owner must match authenticated user's nickname");
                 return;
