@@ -65,8 +65,7 @@ public class MessageDatabase {
                 "record_time_received INTEGER NOT NULL, " +
                 "record_owner TEXT NOT NULL, " +
                 "update_reason TEXT, " +
-                "edited INTEGER, " +
-                "FOREIGN KEY (record_owner) REFERENCES users(nickname))";
+                "edited INTEGER)";
             
             createStatement = connection.createStatement();
             createStatement.executeUpdate(createMessagesString);
