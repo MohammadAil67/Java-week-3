@@ -261,6 +261,9 @@ public class Server implements HttpHandler {
             }
 
             // Store the message in the database using the validated record_owner
+            System.out.println("DEBUG: Inserting message - orbital_elements: " + 
+                (orbitalElements != null ? "present" : "null") + 
+                ", state_vector: " + (stateVector != null ? "present" : "null"));
             db.addMessage(targetBodyName, centerBodyName, epoch, orbitalElements, stateVector, recordOwner, recordPayload, observatories);
 
             // Send success response with 200 OK status
@@ -271,6 +274,9 @@ public class Server implements HttpHandler {
             sendResponse(exchange, 400, "Invalid JSON format");
         } catch (SQLException e) {
             System.err.println("Database error: " + e.getMessage());
+            System.err.println("SQL State: " + e.getSQLState());
+            System.err.println("Error Code: " + e.getErrorCode());
+            e.printStackTrace();
             sendResponse(exchange, 500, "Database error");
         }
     }
@@ -588,6 +594,9 @@ public class Server implements HttpHandler {
             sendResponse(exchange, 400, "Invalid JSON format");
         } catch (SQLException e) {
             System.err.println("Database error: " + e.getMessage());
+            System.err.println("SQL State: " + e.getSQLState());
+            System.err.println("Error Code: " + e.getErrorCode());
+            e.printStackTrace();
             sendResponse(exchange, 500, "Database error");
         }
     }
