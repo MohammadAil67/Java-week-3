@@ -183,16 +183,27 @@ public class Server implements HttpHandler {
                 return;
             }
             
-            // Extract record_owner from metadata - it's mandatory
-            if (!metadata.has("record_owner")) {
-                sendResponse(exchange, 400, "Missing required field: metadata.record_owner");
+            // Get the username from the authenticated principal
+            String username = exchange.getPrincipal().getUsername();
+            
+            // Get the user's nickname from the database
+            MessageDatabase db = MessageDatabase.getInstance();
+            String userNickname = db.getUserNickname(username);
+            
+            if (userNickname == null) {
+                sendResponse(exchange, 500, "User nickname not found");
                 return;
             }
             
-            String recordOwner = metadata.getString("record_owner");
+            // Extract record_owner from metadata - optional, will auto-fill from authenticated user if not provided
+            String recordOwner = null;
+            if (metadata.has("record_owner")) {
+                recordOwner = metadata.getString("record_owner");
+            }
+            
+            // If record_owner is not provided or is empty, auto-fill from authenticated user's nickname
             if (recordOwner == null || recordOwner.trim().isEmpty()) {
-                sendResponse(exchange, 400, "record_owner cannot be empty");
-                return;
+                recordOwner = userNickname;
             }
             
             // Extract observatory information if present
@@ -241,19 +252,9 @@ public class Server implements HttpHandler {
                 return;
             }
             
-            // Get the username from the authenticated principal
-            String username = exchange.getPrincipal().getUsername();
-            
-            // Get the nickname from the database for validation
-            MessageDatabase db = MessageDatabase.getInstance();
-            String userNickname = db.getUserNickname(username);
-            
-            if (userNickname == null) {
-                sendResponse(exchange, 500, "User nickname not found");
-                return;
-            }
-            
             // Validate that record_owner matches the authenticated user's nickname (security check)
+            // This ensures that if a record_owner was explicitly provided, it matches the authenticated user
+            // If record_owner was auto-filled, this validation will pass (but is still necessary for security)
             if (!recordOwner.equals(userNickname)) {
                 sendResponse(exchange, 403, "record_owner must match authenticated user's nickname");
                 return;
