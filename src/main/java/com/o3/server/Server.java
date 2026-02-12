@@ -183,16 +183,27 @@ public class Server implements HttpHandler {
                 return;
             }
             
-            // Extract record_owner from metadata - it's mandatory
-            if (!metadata.has("record_owner")) {
-                sendResponse(exchange, 400, "Missing required field: metadata.record_owner");
+            // Get the username from the authenticated principal
+            String username = exchange.getPrincipal().getUsername();
+            
+            // Get the user's nickname from the database
+            MessageDatabase db = MessageDatabase.getInstance();
+            String userNickname = db.getUserNickname(username);
+            
+            if (userNickname == null) {
+                sendResponse(exchange, 500, "User nickname not found");
                 return;
             }
             
-            String recordOwner = metadata.getString("record_owner");
+            // Extract record_owner from metadata - optional, will auto-fill from authenticated user if not provided
+            String recordOwner = null;
+            if (metadata.has("record_owner")) {
+                recordOwner = metadata.getString("record_owner");
+            }
+            
+            // If record_owner is not provided or is empty, auto-fill from authenticated user's nickname
             if (recordOwner == null || recordOwner.trim().isEmpty()) {
-                sendResponse(exchange, 400, "record_owner cannot be empty");
-                return;
+                recordOwner = userNickname;
             }
             
             // Extract observatory information if present
@@ -238,18 +249,6 @@ public class Server implements HttpHandler {
             // Validate data types in state_vector
             if (stateVector != null && !validateStateVector(stateVector)) {
                 sendResponse(exchange, 400, "Invalid data types in state_vector");
-                return;
-            }
-            
-            // Get the username from the authenticated principal
-            String username = exchange.getPrincipal().getUsername();
-            
-            // Get the nickname from the database for validation
-            MessageDatabase db = MessageDatabase.getInstance();
-            String userNickname = db.getUserNickname(username);
-            
-            if (userNickname == null) {
-                sendResponse(exchange, 500, "User nickname not found");
                 return;
             }
             
