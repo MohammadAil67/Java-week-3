@@ -271,6 +271,9 @@ public class Server implements HttpHandler {
             sendResponse(exchange, 400, "Invalid JSON format");
         } catch (SQLException e) {
             System.err.println("Database error: " + e.getMessage());
+            System.err.println("SQL State: " + e.getSQLState());
+            System.err.println("Error Code: " + e.getErrorCode());
+            e.printStackTrace();
             sendResponse(exchange, 500, "Database error");
         }
     }

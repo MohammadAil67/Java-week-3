@@ -31,11 +31,17 @@ public class MessageDatabase {
             String connectionAddress = "jdbc:sqlite:" + dbName;
             connection = DriverManager.getConnection(connectionAddress);
             
+            // Enable foreign key constraints
+            Statement stmt = connection.createStatement();
+            stmt.execute("PRAGMA foreign_keys = ON;");
+            stmt.close();
+            
             if (!dbExists) {
                 initializeDatabase();
             }
         } catch (SQLException e) {
             System.err.println("Error opening database: " + e.getMessage());
+            e.printStackTrace();
             throw e;
         }
     }
@@ -168,68 +174,80 @@ public class MessageDatabase {
                           String ownerNickname, String recordPayload, List<Observatory> observatories) throws SQLException {
         long timestamp = ZonedDateTime.now(ZoneOffset.UTC).toInstant().toEpochMilli();
         
-        String insertQuery = "INSERT INTO messages " +
-            "(target_body_name, center_body_name, epoch, orbital_elements, state_vector, " +
-            "record_payload, record_time_received, record_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        // Debug logging
+        System.err.println("DEBUG: Adding message for owner: " + ownerNickname);
+        System.err.println("DEBUG: Connection null? " + (connection == null));
         
-        PreparedStatement statement = connection.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS);
-        statement.setString(1, targetBodyName);
-        statement.setString(2, centerBodyName);
-        statement.setString(3, epoch);
-        statement.setString(4, orbitalElements != null ? orbitalElements.toString() : null);
-        statement.setString(5, stateVector != null ? stateVector.toString() : null);
-        statement.setString(6, recordPayload);
-        statement.setLong(7, timestamp);
-        statement.setString(8, ownerNickname);
-        
-        statement.executeUpdate();
-        
-        ResultSet generatedKeys = statement.getGeneratedKeys();
-        int id = -1;
-        if (generatedKeys.next()) {
-            id = generatedKeys.getInt(1);
-        }
-        
-        generatedKeys.close();
-        statement.close();
-        
-        // Add observatories if present
-        if (observatories != null && !observatories.isEmpty() && id != -1) {
-            String insertObsQuery = "INSERT INTO observatories " +
-                "(message_id, latitude, longitude, observatory_name, temperature_in_kelvins, cloudiness_percentage, background_light_volume) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            PreparedStatement obsStatement = connection.prepareStatement(insertObsQuery);
+        try {
+            String insertQuery = "INSERT INTO messages " +
+                "(target_body_name, center_body_name, epoch, orbital_elements, state_vector, " +
+                "record_payload, record_time_received, record_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             
-            for (Observatory obs : observatories) {
-                obsStatement.setInt(1, id);
-                obsStatement.setDouble(2, obs.getLatitude());
-                obsStatement.setDouble(3, obs.getLongitude());
-                obsStatement.setString(4, obs.getObservatoryName());
-                
-                // Set weather data (can be null)
-                if (obs.getTemperatureInKelvins() != null) {
-                    obsStatement.setDouble(5, obs.getTemperatureInKelvins());
-                } else {
-                    obsStatement.setNull(5, java.sql.Types.REAL);
-                }
-                if (obs.getCloudinessPercentage() != null) {
-                    obsStatement.setDouble(6, obs.getCloudinessPercentage());
-                } else {
-                    obsStatement.setNull(6, java.sql.Types.REAL);
-                }
-                if (obs.getBackgroundLightVolume() != null) {
-                    obsStatement.setDouble(7, obs.getBackgroundLightVolume());
-                } else {
-                    obsStatement.setNull(7, java.sql.Types.REAL);
-                }
-                
-                obsStatement.addBatch();
+            PreparedStatement statement = connection.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS);
+            statement.setString(1, targetBodyName);
+            statement.setString(2, centerBodyName);
+            statement.setString(3, epoch);
+            statement.setString(4, orbitalElements != null ? orbitalElements.toString() : null);
+            statement.setString(5, stateVector != null ? stateVector.toString() : null);
+            statement.setString(6, recordPayload);
+            statement.setLong(7, timestamp);
+            statement.setString(8, ownerNickname);
+            
+            statement.executeUpdate();
+            
+            ResultSet generatedKeys = statement.getGeneratedKeys();
+            int id = -1;
+            if (generatedKeys.next()) {
+                id = generatedKeys.getInt(1);
             }
             
-            obsStatement.executeBatch();
-            obsStatement.close();
+            generatedKeys.close();
+            statement.close();
+            
+            // Add observatories if present
+            if (observatories != null && !observatories.isEmpty() && id != -1) {
+                String insertObsQuery = "INSERT INTO observatories " +
+                    "(message_id, latitude, longitude, observatory_name, temperature_in_kelvins, cloudiness_percentage, background_light_volume) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                PreparedStatement obsStatement = connection.prepareStatement(insertObsQuery);
+                
+                for (Observatory obs : observatories) {
+                    obsStatement.setInt(1, id);
+                    obsStatement.setDouble(2, obs.getLatitude());
+                    obsStatement.setDouble(3, obs.getLongitude());
+                    obsStatement.setString(4, obs.getObservatoryName());
+                    
+                    // Set weather data (can be null)
+                    if (obs.getTemperatureInKelvins() != null) {
+                        obsStatement.setDouble(5, obs.getTemperatureInKelvins());
+                    } else {
+                        obsStatement.setNull(5, java.sql.Types.REAL);
+                    }
+                    if (obs.getCloudinessPercentage() != null) {
+                        obsStatement.setDouble(6, obs.getCloudinessPercentage());
+                    } else {
+                        obsStatement.setNull(6, java.sql.Types.REAL);
+                    }
+                    if (obs.getBackgroundLightVolume() != null) {
+                        obsStatement.setDouble(7, obs.getBackgroundLightVolume());
+                    } else {
+                        obsStatement.setNull(7, java.sql.Types.REAL);
+                    }
+                    
+                    obsStatement.addBatch();
+                }
+                
+                obsStatement.executeBatch();
+                obsStatement.close();
+            }
+            
+            return id;
+        } catch (SQLException e) {
+            System.err.println("ERROR in addMessage: " + e.getMessage());
+            System.err.println("ERROR SQL State: " + e.getSQLState());
+            System.err.println("ERROR Code: " + e.getErrorCode());
+            e.printStackTrace();
+            throw e;
         }
-        
-        return id;
     }
     
     public List<ObservationRecord> getAllMessages() throws SQLException {
