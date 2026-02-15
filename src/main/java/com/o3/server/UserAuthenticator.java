@@ -37,9 +37,11 @@ public class UserAuthenticator extends BasicAuthenticator {
         try {
             MessageDatabase db = MessageDatabase.getInstance();
             // Generate random salt for SHA-512
-            byte[] saltBytes = new byte[16];
+            byte[] saltBytes = new byte[12];
             secureRandom.nextBytes(saltBytes);
-            String salt = "$6$" + Base64.getEncoder().encodeToString(saltBytes).substring(0, 16);
+            // Encode to Base64 without padding, which gives exactly 16 characters
+            String saltString = Base64.getEncoder().withoutPadding().encodeToString(saltBytes);
+            String salt = "$6$" + saltString;
             // Hash the password using Crypt with SHA-512
             String hashedPassword = Crypt.crypt(password, salt);
             return db.addUser(username, hashedPassword, email, nickname);
