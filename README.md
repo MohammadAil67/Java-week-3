@@ -12,7 +12,7 @@ This project implements a complete HTTPS server for managing orbital observation
 ### Exercise 2 - HTTPS and Authentication
 - ✅ HTTPS server with SSL/TLS encryption
 - ✅ Self-signed certificate support
-- ✅ Basic HTTP authentication with BCrypt password hashing
+- ✅ Basic HTTP authentication with SHA-512 password hashing (Apache Commons Codec)
 - ✅ User registration endpoint (unauthenticated)
 - ✅ Protected data endpoint (requires authentication)
 
@@ -24,6 +24,18 @@ This project implements a complete HTTPS server for managing orbital observation
 - ✅ Proper validation and error handling
 - ✅ Mandatory record_payload field in observations
 - ✅ Observatory information support (latitude, longitude, observatory_name)
+
+### Exercise 4 - Database Integration
+- ✅ SQLite database for persistent storage
+- ✅ Relational tables for users, messages, and observatories
+- ✅ Database operations with proper error handling
+
+### Exercise 5 - Multi-threading and Security
+- ✅ Multi-threaded request handling with cached thread pool
+- ✅ Controlled server shutdown with database cleanup
+- ✅ SHA-512 password hashing with salt (Apache Commons Codec)
+- ✅ Thread-safe handler implementation
+- ✅ Thread ID logging for verification
 
 ## API Requirements Met
 
@@ -85,7 +97,8 @@ curl -k -d '{"username":"testuser","password":"testpass","email":"test@example.c
 - `409 Conflict` - User already registered
 
 **Note:** 
-- Passwords are hashed using BCrypt before storage for security.
+- Passwords are hashed using SHA-512 with salt (Apache Commons Codec Crypt) before storage for security.
+- The server supports multi-threaded request handling using a cached thread pool for better performance.
 - The `nickname` you provide during registration must be included as `record_owner` in the metadata when posting orbital data. The server will validate that the `record_owner` matches your authenticated user's nickname for security.
 
 ### 2. Post Orbital Data (Authentication Required)
@@ -222,8 +235,10 @@ A default user is created for testing:
 ## Security Features
 
 - HTTPS/TLS encryption
-- Basic HTTP authentication with BCrypt password hashing
-- Passwords are hashed and salted using BCrypt before storage
+- Basic HTTP authentication with SHA-512 password hashing (Apache Commons Codec)
+- Passwords are hashed and salted using SHA-512 before storage
+- Multi-threaded request handling for better performance
+- Controlled server shutdown to prevent database corruption
 - Database storage for users and observations
 - Input validation for empty fields and data types
 - Proper HTTP status codes
@@ -251,13 +266,14 @@ A default user is created for testing:
 - Maven 3.6+
 - org.json:json:20250107
 - org.xerial:sqlite-jdbc:3.48.0.0
-- org.mindrot:jbcrypt:0.4
+- commons-codec:commons-codec:1.15
 
 ## Testing
 
 All functionality has been tested with curl:
 - ✅ User registration (success and duplicate) with 201 status code
-- ✅ BCrypt password hashing and authentication
+- ✅ SHA-512 password hashing and authentication
+- ✅ Multi-threaded request handling
 - ✅ Posting messages with orbital_elements only
 - ✅ Posting messages with state_vector only
 - ✅ Posting messages with both orbital_elements and state_vector
@@ -270,9 +286,14 @@ All functionality has been tested with curl:
 - ✅ Unsupported method handling
 - ✅ Empty field validation
 - ✅ Content-Type headers in all responses
+- ✅ Controlled server shutdown
 
 ## Security Summary
 
 ✅ No security vulnerabilities detected by CodeQL analysis.
 
-**Password Security:** User passwords are hashed and salted using BCrypt (cost factor 10) before being stored in the database. BCrypt is a modern, secure password hashing algorithm designed to be slow and resistant to brute-force attacks.
+**Password Security:** User passwords are hashed and salted using SHA-512 (via Apache Commons Codec Crypt) before being stored in the database. SHA-512 is a cryptographic hash function from the SHA-2 family that provides strong security for password storage.
+
+**Thread Safety:** The server uses a cached thread pool to handle multiple requests concurrently. All handler methods are thread-safe, using only final member variables or local variables. The SQLite database is thread-safe in its default configuration.
+
+**Controlled Shutdown:** A shutdown hook ensures the database connection is properly closed when the server shuts down, preventing potential database corruption.
