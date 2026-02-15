@@ -1,7 +1,7 @@
 package com.o3.server;
 
 import com.sun.net.httpserver.BasicAuthenticator;
-import org.apache.commons.codec.digest.Crypt;
+import org.apache.commons.codec.digest.UnixCrypt;
 import java.security.SecureRandom;
 import java.sql.SQLException;
 import java.util.Base64;
@@ -22,7 +22,7 @@ public class UserAuthenticator extends BasicAuthenticator {
             if (user != null) {
                 String hashedPassword = user.getPassword();
                 // Use Crypt to verify password against stored hash
-                return hashedPassword.equals(Crypt.crypt(password, hashedPassword));
+                return hashedPassword.equals(UnixCrypt.crypt(password, hashedPassword));
             }
         } catch (SQLException e) {
             System.err.println("Error checking credentials: " + e.getMessage());
@@ -43,7 +43,7 @@ public class UserAuthenticator extends BasicAuthenticator {
             String saltString = Base64.getEncoder().withoutPadding().encodeToString(saltBytes);
             String salt = "$6$" + saltString;
             // Hash the password using Crypt with SHA-512
-            String hashedPassword = Crypt.crypt(password, salt);
+            String hashedPassword = UnixCrypt.crypt(password, salt);
             return db.addUser(username, hashedPassword, email, nickname);
         } catch (SQLException e) {
             System.err.println("Error adding user: " + e.getMessage());
