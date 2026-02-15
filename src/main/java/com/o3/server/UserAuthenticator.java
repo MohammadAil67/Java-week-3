@@ -21,7 +21,7 @@ public class UserAuthenticator extends BasicAuthenticator {
             User user = db.getUser(username);
             if (user != null) {
                 String hashedPassword = user.getPassword();
-                // Use Crypt to verify password against stored hash
+                // Use UnixCrypt to verify password against stored hash
                 return hashedPassword.equals(UnixCrypt.crypt(password, hashedPassword));
             }
         } catch (SQLException e) {
@@ -42,7 +42,7 @@ public class UserAuthenticator extends BasicAuthenticator {
             // Encode to Base64 without padding, which gives exactly 16 characters
             String saltString = Base64.getEncoder().withoutPadding().encodeToString(saltBytes);
             String salt = "$6$" + saltString;
-            // Hash the password using Crypt with SHA-512
+            // Hash the password using UnixCrypt with SHA-512
             String hashedPassword = UnixCrypt.crypt(password, salt);
             return db.addUser(username, hashedPassword, email, nickname);
         } catch (SQLException e) {
