@@ -21,6 +21,9 @@ public class RegistrationHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        // Log thread ID for verification during testing
+        System.out.println("Registration request handled in thread " + Thread.currentThread().getId());
+        
         if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             handlePost(exchange);
         } else {

@@ -13,6 +13,7 @@ import java.security.KeyStore;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class Server implements HttpHandler {
@@ -68,7 +69,20 @@ public class Server implements HttpHandler {
             // Create context for registration without authentication
             server.createContext("/registration", new RegistrationHandler(authenticator));
 
-            server.setExecutor(null);
+            // Enable multi-threading with cached thread pool
+            server.setExecutor(Executors.newCachedThreadPool());
+            
+            // Add shutdown hook for controlled database closure
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("Shutting down server...");
+                try {
+                    db.close();
+                    System.out.println("Database closed successfully");
+                } catch (SQLException e) {
+                    System.err.println("Error closing database: " + e.getMessage());
+                }
+            }));
+            
             server.start();
             System.out.println("Server started on port 8001");
 
@@ -99,6 +113,9 @@ public class Server implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        // Log thread ID for verification during testing
+        System.out.println("Request handled in thread " + Thread.currentThread().getId());
+        
         if (exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             handlePost(exchange);
         } else if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
