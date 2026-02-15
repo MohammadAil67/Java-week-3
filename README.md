@@ -266,7 +266,7 @@ A default user is created for testing:
 - Maven 3.6+
 - org.json:json:20250107
 - org.xerial:sqlite-jdbc:3.48.0.0
-- commons-codec:commons-codec:1.15
+- commons-codec:commons-codec:1.17.1
 
 ## Testing
 

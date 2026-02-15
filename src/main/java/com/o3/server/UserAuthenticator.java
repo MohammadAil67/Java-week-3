@@ -2,12 +2,16 @@ package com.o3.server;
 
 import com.sun.net.httpserver.BasicAuthenticator;
 import org.apache.commons.codec.digest.Crypt;
+import java.security.SecureRandom;
 import java.sql.SQLException;
+import java.util.Base64;
 
 public class UserAuthenticator extends BasicAuthenticator {
+    private final SecureRandom secureRandom;
     
     public UserAuthenticator(String realm) {
         super(realm);
+        this.secureRandom = new SecureRandom();
     }
 
     @Override
@@ -32,8 +36,12 @@ public class UserAuthenticator extends BasicAuthenticator {
     public boolean addUser(String username, String password, String email, String nickname) {
         try {
             MessageDatabase db = MessageDatabase.getInstance();
-            // Hash the password using Crypt with SHA-512 (default)
-            String hashedPassword = Crypt.crypt(password);
+            // Generate random salt for SHA-512
+            byte[] saltBytes = new byte[16];
+            secureRandom.nextBytes(saltBytes);
+            String salt = "$6$" + Base64.getEncoder().encodeToString(saltBytes).substring(0, 16);
+            // Hash the password using Crypt with SHA-512
+            String hashedPassword = Crypt.crypt(password, salt);
             return db.addUser(username, hashedPassword, email, nickname);
         } catch (SQLException e) {
             System.err.println("Error adding user: " + e.getMessage());
