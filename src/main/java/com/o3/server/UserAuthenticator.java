@@ -1,7 +1,7 @@
 package com.o3.server;
 
 import com.sun.net.httpserver.BasicAuthenticator;
-import org.mindrot.jbcrypt.BCrypt;
+import org.apache.commons.codec.digest.Crypt;
 import java.sql.SQLException;
 
 public class UserAuthenticator extends BasicAuthenticator {
@@ -16,13 +16,14 @@ public class UserAuthenticator extends BasicAuthenticator {
             MessageDatabase db = MessageDatabase.getInstance();
             User user = db.getUser(username);
             if (user != null) {
-                // Use BCrypt to verify password against stored hash
-                return BCrypt.checkpw(password, user.getPassword());
+                String hashedPassword = user.getPassword();
+                // Use Crypt to verify password against stored hash
+                return hashedPassword.equals(Crypt.crypt(password, hashedPassword));
             }
         } catch (SQLException e) {
             System.err.println("Error checking credentials: " + e.getMessage());
         } catch (IllegalArgumentException e) {
-            // Handle invalid hash format (e.g., if migration from plaintext is incomplete)
+            // Handle invalid hash format
             System.err.println("Invalid password hash format: " + e.getMessage());
         }
         return false;
@@ -31,8 +32,8 @@ public class UserAuthenticator extends BasicAuthenticator {
     public boolean addUser(String username, String password, String email, String nickname) {
         try {
             MessageDatabase db = MessageDatabase.getInstance();
-            // Hash the password using BCrypt with salt
-            String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
+            // Hash the password using Crypt with SHA-512 (default)
+            String hashedPassword = Crypt.crypt(password);
             return db.addUser(username, hashedPassword, email, nickname);
         } catch (SQLException e) {
             System.err.println("Error adding user: " + e.getMessage());
