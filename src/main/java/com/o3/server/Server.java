@@ -5,9 +5,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import javax.net.ssl.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,13 +20,18 @@ public class Server implements HttpHandler {
 
     public static void main(String[] args) {
         try {
+            if (args.length < 2) {
+                System.err.println("Usage: Server <keystore-path> <keystore-password>");
+                return;
+            }
+
             // Initialize database
             String dbPath = System.getenv("DATABASE_PATH");
             if (dbPath == null || dbPath.trim().isEmpty()) {
                 System.err.println("DATABASE_PATH environment variable not set");
                 return;
             }
-            
+
             MessageDatabase db = MessageDatabase.getInstance();
             try {
                 db.open(dbPath);
@@ -34,8 +41,35 @@ public class Server implements HttpHandler {
                 return;
             }
 
-            // Create HTTP server
-            HttpServer server = HttpServer.create(new InetSocketAddress(8001), 0);
+            // Load keystore
+            char[] password = args[1].toCharArray();
+            KeyStore ks = KeyStore.getInstance("JKS");
+            try (FileInputStream fis = new FileInputStream(args[0])) {
+                ks.load(fis, password);
+            }
+
+            // Set up key manager
+            KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+            kmf.init(ks, password);
+
+            // Set up trust manager
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+            tmf.init(ks);
+
+            // Create SSL context
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+
+            // Create HTTPS server
+            HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
+            server.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
+                @Override
+                public void configure(HttpsParameters params) {
+                    SSLContext c = getSSLContext();
+                    SSLParameters sslparams = c.getDefaultSSLParameters();
+                    params.setSSLParameters(sslparams);
+                }
+            });
 
             // Create authenticator
             UserAuthenticator authenticator = new UserAuthenticator("datarecord");
@@ -49,7 +83,7 @@ public class Server implements HttpHandler {
 
             // Enable multi-threading with cached thread pool
             server.setExecutor(Executors.newCachedThreadPool());
-            
+
             // Add shutdown hook for controlled database closure
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 System.out.println("Shutting down server...");
@@ -60,7 +94,7 @@ public class Server implements HttpHandler {
                     System.err.println("Error closing database: " + e.getMessage());
                 }
             }));
-            
+
             server.start();
             System.out.println("Server started on port 8001");
 
