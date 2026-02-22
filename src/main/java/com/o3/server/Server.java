@@ -5,11 +5,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import javax.net.ssl.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,15 +18,6 @@ public class Server implements HttpHandler {
 
     public static void main(String[] args) {
         try {
-            // Validate command line arguments
-            if (args.length < 2) {
-                System.out.println("Usage: java Server <keystore-path> <keystore-password>");
-                return;
-            }
-
-            String keystorePath = args[0];
-            String keystorePassword = args[1];
-            
             // Initialize database
             String dbPath = System.getenv("DATABASE_PATH");
             if (dbPath == null || dbPath.trim().isEmpty()) {
@@ -45,19 +34,8 @@ public class Server implements HttpHandler {
                 return;
             }
 
-            // Create HTTPS server
-            HttpsServer server = HttpsServer.create(new InetSocketAddress(8001), 0);
-
-            // Configure SSL context
-            SSLContext sslContext = myServerSSLContext(keystorePath, keystorePassword);
-            server.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
-                public void configure(HttpsParameters params) {
-                    InetSocketAddress remote = params.getClientAddress();
-                    SSLContext c = getSSLContext();
-                    SSLParameters sslparams = c.getDefaultSSLParameters();
-                    params.setSSLParameters(sslparams);
-                }
-            });
+            // Create HTTP server
+            HttpServer server = HttpServer.create(new InetSocketAddress(8001), 0);
 
             // Create authenticator
             UserAuthenticator authenticator = new UserAuthenticator("datarecord");
@@ -86,29 +64,9 @@ public class Server implements HttpHandler {
             server.start();
             System.out.println("Server started on port 8001");
 
-        } catch (FileNotFoundException e) {
-            System.out.println("Certificate not found!");
-            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private static SSLContext myServerSSLContext(String keystorePath, String password) throws Exception {
-        char[] passphrase = password.toCharArray();
-        KeyStore ks = KeyStore.getInstance("JKS");
-        ks.load(new FileInputStream(keystorePath), passphrase);
-
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(ks, passphrase);
-
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
-        tmf.init(ks);
-
-        SSLContext ssl = SSLContext.getInstance("TLS");
-        ssl.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-
-        return ssl;
     }
 
     @Override
